@@ -1,5 +1,1 @@
-from .nodes import ReplaceColorByPalette
-
-NODE_CLASS_MAPPINGS = {
-    "ReplaceColorByPalette": ReplaceColorByPalette,
-}
+from .nodes import NODE_CLASS_MAPPINGS

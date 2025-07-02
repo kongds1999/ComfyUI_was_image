@@ -50,7 +50,7 @@ class ReplaceColorByPalette:
         }
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "replace"
-    CATEGORY = "image/processing"
+    CATEGORY = "comfyui_was_image"
     DESCRIPTION = "批量替换图片中的多个指定颜色块为新颜色。"
 
     def replace(self, image, source_hex_colors, target_hex_colors, color_tolerance, strategy_on_mismatch):
@@ -70,6 +70,34 @@ class ReplaceColorByPalette:
         out_tensor = torch.stack(imgs, dim=0).to(image.device)
         return (out_tensor,)
 
+class ConvertGrayToImage:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "gray_tensor": ("IMAGE",),
+            }
+        }
+
+    CATEGORY = "comfyui_was_image"
+    RETURN_TYPES = ("IMAGE",)  # 或者你自定义的类型
+    RETURN_NAMES = ("image",)
+    FUNCTION = "gray_to_image"
+
+    def gray_to_image(self, gray_tensor):
+        images = []
+        if gray_tensor.dim() == 2:
+            gray_tensor = gray_tensor.unsqueeze(0)
+        for img in gray_tensor:
+            img_np = (img.cpu().numpy() * 255).astype('uint8')
+            img_np = np.expand_dims(img_np, axis=-1)  # (H, W, 1)
+            img_np = np.repeat(img_np, 3, axis=-1)    # (H, W, 3) 灰度转伪RGB
+            img_np = img_np.astype(np.float32) / 255.0
+            images.append(torch.from_numpy(img_np))
+        out_tensor = torch.stack(images, dim=0).to(gray_tensor.device)
+        return (out_tensor,)
+
 NODE_CLASS_MAPPINGS = {
     "Replace Color By Palette": ReplaceColorByPalette,
+    "ConvertGrayToImage": ConvertGrayToImage,
 }
