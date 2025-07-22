@@ -97,7 +97,74 @@ class ConvertGrayToImage:
         out_tensor = torch.stack(images, dim=0).to(gray_tensor.device)
         return (out_tensor,)
 
+class GenerateColorPalette:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "hex_colors": ("STRING", {"multiline": True, "tooltip": "十六进制颜色代码列表，每行一个，如#06d3f5"}),
+                "width": ("INT", {"default": 128, "min": 1, "max": 2048, "step": 1, "tooltip": "色卡宽度"}),
+                "height": ("INT", {"default": 384, "min": 1, "max": 2048, "step": 1, "tooltip": "色卡总高度"}),
+                "debug_colors": ("BOOLEAN", {"default": False, "tooltip": "是否在控制台打印颜色调试信息"}),
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "generate_palette"
+    CATEGORY = "comfyui_was_image"
+    DESCRIPTION = "根据十六进制颜色代码生成纵向排列的色卡图像。"
+
+    def generate_palette(self, hex_colors, width, height, debug_colors):
+        # 解析颜色列表
+        if isinstance(hex_colors, str):
+            color_list = [x.strip() for x in hex_colors.splitlines() if x.strip()]
+        else:
+            color_list = hex_colors
+        
+        if not color_list:
+            # 如果没有颜色，返回黑色图像
+            img_np = np.zeros((height, width, 3), dtype=np.uint8)
+            img_tensor = torch.from_numpy(img_np.astype(np.float32) / 255.0).unsqueeze(0)
+            return (img_tensor,)
+        
+        # 计算每个颜色块的高度
+        num_colors = len(color_list)
+        block_height = height // num_colors
+        
+        # 创建图像数组
+        img_np = np.zeros((height, width, 3), dtype=np.uint8)
+        
+        # 填充每个颜色块
+        for i, hex_color in enumerate(color_list):
+            try:
+                rgb = hex_to_rgb(hex_color)
+                if debug_colors:
+                    print(f"输入颜色 {hex_color} -> RGB: {rgb}")
+                start_y = i * block_height
+                end_y = start_y + block_height
+                
+                # 如果是最后一个颜色块，确保填满剩余高度
+                if i == num_colors - 1:
+                    end_y = height
+                
+                img_np[start_y:end_y, :, :] = rgb
+            except ValueError as e:
+                # 如果颜色格式错误，使用黑色
+                print(f"颜色格式错误: {hex_color}, 使用黑色替代")
+                start_y = i * block_height
+                end_y = start_y + block_height
+                if i == num_colors - 1:
+                    end_y = height
+                img_np[start_y:end_y, :, :] = (0, 0, 0)
+        
+        # 转换为ComfyUI格式的tensor，确保精度
+        # 使用更高精度的转换，避免精度损失
+        img_tensor = torch.from_numpy(img_np).float() / 255.0
+        img_tensor = img_tensor.unsqueeze(0)
+        return (img_tensor,)
+
 NODE_CLASS_MAPPINGS = {
     "Replace Color By Palette": ReplaceColorByPalette,
     "ConvertGrayToImage": ConvertGrayToImage,
+    "Generate Color Palette": GenerateColorPalette,
 }

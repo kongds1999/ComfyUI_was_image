@@ -1,5 +1,13 @@
 # ComfyUI_was_image
 
+- **[2025-07-22]**
+
+    Added a tool node for generating a color chart.
+
+    新增一个用于生成色卡的工具节点
+
+    ![](./assets/20250722.png)
+
 - **[2025-07-02]**
 
     Add a new node to convert gray to normal image
