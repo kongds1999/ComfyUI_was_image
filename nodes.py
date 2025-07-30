@@ -105,6 +105,7 @@ class GenerateColorPalette:
                 "hex_colors": ("STRING", {"multiline": True, "tooltip": "十六进制颜色代码列表，每行一个，如#06d3f5"}),
                 "width": ("INT", {"default": 128, "min": 1, "max": 2048, "step": 1, "tooltip": "色卡宽度"}),
                 "height": ("INT", {"default": 384, "min": 1, "max": 2048, "step": 1, "tooltip": "色卡总高度"}),
+                "direction": (["vertical", "horizontal"], {"default": "vertical", "tooltip": "色卡排列方向：纵向或横向。"}),
                 "debug_colors": ("BOOLEAN", {"default": False, "tooltip": "是否在控制台打印颜色调试信息"}),
             }
         }
@@ -114,7 +115,7 @@ class GenerateColorPalette:
     CATEGORY = "comfyui_was_image"
     DESCRIPTION = "根据十六进制颜色代码生成纵向排列的色卡图像。"
 
-    def generate_palette(self, hex_colors, width, height, debug_colors):
+    def generate_palette(self, hex_colors, width, height, direction, debug_colors):
         # 解析颜色列表
         if isinstance(hex_colors, str):
             color_list = [x.strip() for x in hex_colors.splitlines() if x.strip()]
@@ -140,22 +141,38 @@ class GenerateColorPalette:
                 rgb = hex_to_rgb(hex_color)
                 if debug_colors:
                     print(f"输入颜色 {hex_color} -> RGB: {rgb}")
-                start_y = i * block_height
-                end_y = start_y + block_height
-                
-                # 如果是最后一个颜色块，确保填满剩余高度
-                if i == num_colors - 1:
-                    end_y = height
-                
-                img_np[start_y:end_y, :, :] = rgb
+
+                if direction == "vertical":
+                    # 纵向排列逻辑 (原有逻辑)
+                    block_height = height // num_colors
+                    start_y = i * block_height
+                    end_y = start_y + block_height
+                    if i == num_colors - 1: # 最后一个块填满剩余高度
+                        end_y = height
+                    img_np[start_y:end_y, :, :] = rgb
+                elif direction == "horizontal":
+                    # 横向排列逻辑 (新增逻辑)
+                    block_width = width // num_colors
+                    start_x = i * block_width
+                    end_x = start_x + block_width
+                    if i == num_colors - 1: # 最后一个块填满剩余宽度
+                        end_x = width
+                    img_np[:, start_x:end_x, :] = rgb
             except ValueError as e:
                 # 如果颜色格式错误，使用黑色
                 print(f"颜色格式错误: {hex_color}, 使用黑色替代")
-                start_y = i * block_height
-                end_y = start_y + block_height
-                if i == num_colors - 1:
-                    end_y = height
-                img_np[start_y:end_y, :, :] = (0, 0, 0)
+                if direction == "vertical":
+                    start_y = i * (height // num_colors)
+                    end_y = start_y + (height // num_colors)
+                    if i == num_colors - 1:
+                        end_y = height
+                    img_np[start_y:end_y, :, :] = (0, 0, 0)
+                elif direction == "horizontal":
+                    start_x = i * (width // num_colors)
+                    end_x = start_x + (width // num_colors)
+                    if i == num_colors - 1:
+                        end_x = width
+                    img_np[:, start_x:end_x, :] = (0, 0, 0)
         
         # 转换为ComfyUI格式的tensor，确保精度
         # 使用更高精度的转换，避免精度损失
