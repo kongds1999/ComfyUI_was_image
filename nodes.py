@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from PIL import Image
+import re
 
 # 颜色转换工具
 def hex_to_rgb(hex_color):
@@ -72,7 +73,7 @@ class ReplaceColorByPalette:
 
 class ConvertGrayToImage:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
             "required": {
                 "gray_tensor": ("IMAGE",),
@@ -180,8 +181,133 @@ class GenerateColorPalette:
         img_tensor = img_tensor.unsqueeze(0)
         return (img_tensor,)
 
+class CheckPersonInText:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"multiline": True, "tooltip": "输入要检测的文本"}),
+            }
+        }
+    
+    RETURN_TYPES = ("BOOLEAN",)
+    RETURN_NAMES = ("has_person",)
+    FUNCTION = "check_person"
+    CATEGORY = "comfyui_was_image"
+    DESCRIPTION = "检测文本中是否包含人相关的名词，如果包含则返回True，否则返回False。"
+
+    def check_person(self, text):
+        # 人相关的名词列表（不区分大小写）
+        person_keywords = [
+            # 基础人物词汇
+            "people", "person", "persons",
+            "character", "characters",
+            "man", "men",
+            "woman", "women",
+            "girl", "girls",
+            "boy", "boys",
+            "couple", "couples",
+            "child", "children",
+            "kid", "kids",
+            "baby", "babies",
+            "human", "humans",
+            "individual", "individuals",
+            "adult", "adults",
+            "teenager", "teenagers",
+            "elder", "elders",
+            "senior", "seniors",
+            # 职业/角色 - 执法和安全
+            "police", "policeman", "policemen", "policewoman", "policewomen", "cop", "cops",
+            "detective", "detectives",
+            "soldier", "soldiers", "warrior", "warriors",
+            "guard", "guards", "guardian", "guardians",
+            "security", "bodyguard", "bodyguards",
+            "firefighter", "firefighters", "fireman", "firemen",
+            "sheriff", "sheriffs", "marshal", "marshals",
+            # 职业/角色 - 医疗
+            "doctor", "doctors", "physician", "physicians",
+            "nurse", "nurses",
+            "surgeon", "surgeons",
+            "paramedic", "paramedics",
+            # 职业/角色 - 教育和学术
+            "teacher", "teachers", "professor", "professors",
+            "student", "students", "pupil", "pupils",
+            "scientist", "scientists", "researcher", "researchers",
+            "scholar", "scholars",
+            # 职业/角色 - 交通和运输
+            "pilot", "pilots",
+            "astronaut", "astronauts", "cosmonaut", "cosmonauts",
+            "driver", "drivers",
+            "captain", "captains", "sailor", "sailors",
+            # 职业/角色 - 餐饮和服务
+            "chef", "chefs", "cook", "cooks",
+            "waiter", "waiters", "waitress", "waitresses",
+            "server", "servers", "bartender", "bartenders",
+            # 职业/角色 - 艺术和娱乐
+            "artist", "artists", "painter", "painters",
+            "musician", "musicians", "singer", "singers",
+            "actor", "actors", "actress", "actresses",
+            "dancer", "dancers",
+            "performer", "performers",
+            "director", "directors",
+            # 职业/角色 - 商业和职业
+            "businessman", "businessmen", "businesswoman", "businesswomen",
+            "worker", "workers", "employee", "employees",
+            "engineer", "engineers",
+            "lawyer", "lawyers", "attorney", "attorneys",
+            "judge", "judges",
+            "farmer", "farmers",
+            "builder", "builders", "construction", "worker",
+            # 职业/角色 - 领导和政治
+            "president", "presidents",
+            "leader", "leaders",
+            "king", "kings", "queen", "queens",
+            "prince", "princes", "princess", "princesses",
+            "emperor", "emperors", "empress", "empresses",
+            "lord", "lords", "lady", "ladies",
+            "duke", "dukes", "duchess", "duchesses",
+            # 职业/角色 - 历史和奇幻
+            "knight", "knights",
+            "wizard", "wizards", "witch", "witches", "sorcerer", "sorcerers",
+            "priest", "priests", "monk", "monks", "nun", "nuns",
+            "elf", "elves", "dwarf", "dwarves", "dwarfs",
+            "hero", "heroes", "heroine", "heroines",
+            "superhero", "superheroes", "superheroine", "superheroines",
+            "villain", "villains",
+            # 职业/角色 - 其他
+            "thief", "thieves", "robber", "robbers", "burglar", "burglars",
+            "assassin", "assassins",
+            "ninja", "ninjas",
+            "samurai", "samurais",
+            "viking", "vikings",
+            "pirate", "pirates",
+            "cowboy", "cowboys", "cowgirl", "cowgirls",
+            "clown", "clowns",
+            "mime", "mimes",
+            # 特殊角色
+            "android", "androids",
+            "doll", "dolls",  # 人偶
+            "puppet", "puppets",  # 木偶
+        ]
+        
+        if not text or not isinstance(text, str):
+            return (False,)
+        
+        # 将文本转换为小写以便不区分大小写匹配
+        text_lower = text.lower()
+        
+        # 使用单词边界匹配，确保准确匹配完整单词
+        for keyword in person_keywords:
+            # 使用单词边界 \b 来匹配完整单词
+            pattern = r'\b' + re.escape(keyword) + r'\b'
+            if re.search(pattern, text_lower):
+                return (True,)
+        
+        return (False,)
+
 NODE_CLASS_MAPPINGS = {
     "Replace Color By Palette": ReplaceColorByPalette,
     "ConvertGrayToImage": ConvertGrayToImage,
     "Generate Color Palette": GenerateColorPalette,
+    "Check Person In Text": CheckPersonInText,
 }

@@ -1,5 +1,13 @@
 # ComfyUI_was_image
 
+- **[2025-11-10]**
+
+    Added a tool node for checking person in prompts.
+
+    新增提示词中是否包含人物类描述的节点 Check Person In text
+
+    ![](./assets/20251110.png)
+
 - **[2025-07-22]**
 
     Added a tool node for generating a color chart.
