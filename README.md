@@ -1,5 +1,14 @@
 # ComfyUI_was_image
 
+- **[2026-01-05]** ComfyUI-YOLO
+
+    Added inference node for face detection in images.
+
+    新增用于检测图像中人脸的推理节点
+
+    ![](./assets/20260105.png)
+
+
 - **[2025-11-10]**
 
     Added a tool node for checking person in prompts.

@@ -886,6 +886,76 @@ class UltralyticsInference:
         # return empty mask
         return torch.zeros((height, width), dtype=torch.float32).unsqueeze(0)
 
+class UltralyticsInference_face_detection:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "model": ("ULTRALYTICS_MODEL",),
+                "image": ("IMAGE",),
+            },
+        }
+    RETURN_TYPES = ("ULTRALYTICS_RESULTS","IMAGE", "BOXES", "MASKS", "PROBABILITIES", "KEYPOINTS", "OBB", "LABELS", "MASK", "HAS_FACE", "CNT_FACES",)
+    FUNCTION = "inference"
+    CATEGORY = "Ultralytics/Inference"
+
+    def inference(self, model, image):
+        if image.shape[0] > 1:
+            batch_size = image.shape[0]
+            results = []
+            for i in range(batch_size):
+                yolo_image = image[i].unsqueeze(0).permute(0, 3, 1, 2)
+                result = model.predict(yolo_image)
+                results.append(result)
+            boxes = [result[0].boxes.xywh for result in results]
+            masks_temp = [self.getComfyMasks(result[0].boxes, image.shape[2], image.shape[1]) for result in results]
+            comfy_masks = pad_sequence(masks_temp, batch_first=True)
+            masks = [result[0].masks for result in results]
+            probs = [result[0].probs for result in results]
+            keypoints = [result[0].keypoints for result in results]
+            obb = [result[0].obb for result in results]
+            labels = [result[0].boxes.cls.cpu().tolist() for result in results]
+            has_face = [result[0].boxes is not None and len(result[0].boxes) > 0 for result in results]
+            cnt_faces = [len(result[0].boxes) if result[0].boxes is not None else 0 for result in results]
+
+        else:
+            yolo_image = image.permute(0, 3, 1, 2)
+            results = model.predict(yolo_image)
+            boxes = results[0].boxes.xywh
+            comfy_masks = self.getComfyMasks(results[0].boxes, image.shape[2], image.shape[1])
+            masks = results[0].masks
+            probs = results[0].probs
+            keypoints = results[0].keypoints
+            obb = results[0].obb
+            labels = results[0].boxes.cls.cpu().tolist()
+            has_face = results[0].boxes is not None and len(results[0].boxes) > 0
+            cnt_faces = len(results[0].boxes) if results[0].boxes is not None else 0
+
+        return (results, image, boxes, masks, probs, keypoints, obb, labels, comfy_masks, has_face, cnt_faces)
+
+    def getComfyMasks(self, boxes, width, height):
+        boxes_xyxyn = boxes.xyxyn
+        masks = []
+        for xyxyn in boxes_xyxyn:
+            # Create an empty tensor filled with zeros
+            mask = torch.zeros((height, width), dtype=torch.float32)
+            # Set the specified region to 1
+            x_start = math.floor(xyxyn[0] * width)
+            y_start = math.floor(xyxyn[1] * height)
+            x_end = math.floor(xyxyn[2] * width)
+            y_end = math.floor(xyxyn[3] * height)
+            mask[y_start:y_end, x_start:x_end] = 1
+            masks.append(mask)
+        # produce comfy mask batch from list
+        if len(masks) > 0:
+            comfy_masks = masks[0].unsqueeze(0)
+            if len(masks) > 1:
+                for mask2 in masks[1:]:
+                    comfy_masks = torch.cat((comfy_masks, mask2.unsqueeze(0)), dim=0)
+            return comfy_masks
+        # return empty mask
+        return torch.zeros((height, width), dtype=torch.float32).unsqueeze(0)
+
 class UltralyticsVisualization:
     @classmethod
     def INPUT_TYPES(s):
@@ -1055,6 +1125,7 @@ class UltralyticsListIndexToNames:
 NODE_CLASS_MAPPINGS = {
     "UltralyticsModelLoader": UltralyticsModelLoader,
     "UltralyticsInference": UltralyticsInference,
+    "UltralyticsInference_face_detection": UltralyticsInference_face_detection,
     "UltralyticsVisualization": UltralyticsVisualization,
     "ConvertToDict": ConvertToDict,
     "BBoxToXYWH": BBoxToXYWH,
@@ -1072,6 +1143,7 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "UltralyticsModelLoader": "Ultralytics Model Loader",
     "UltralyticsInference": "Ultralytics Inference",
+    "UltralyticsInference_face_detection": "Ultralytics Inference Face Detection",
     "UltralyticsVisualization": "Ultralytics Visualization",
     "ConvertToDict": "Convert to Dictionary",
     "BBoxToXYWH": "BBox to XYWH",
